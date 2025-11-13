@@ -1,0 +1,568 @@
+{% extends 'provisao_ibipora/base.html' %}
+{% block content %}
+
+<!-- ADICIONE NO <head> DO base.html (OBRIGATÓRIO) -->
+<!-- <meta name="referrer" content="no-referrer-when-downgrade"> -->
+
+<div class="container-fluid px-0">
+    <!-- Cabeçalho -->
+    <div class="border-bottom bg-white position-relative" style="box-shadow: 0 1px 6px rgba(0,0,0,0.1);">
+        <div class="position-absolute start-0 top-0 bottom-0" style="width: 6px; background: linear-gradient(180deg, #118cc4, #0d6efd);"></div>
+
+        <div class="px-4 py-3 d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h5 mb-1 fw-bold text-dark">
+                    Planner Mensal
+                </h1>
+                <p class="text-muted small mb-0">
+                    Gerencie eventos com estilo e praticidade
+                </p>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <!-- Botão Manual de Login com Google -->
+                <button id="googleSignInBtn" class="btn btn-primary btn-sm" style="display: none;">
+                    Entrar com Google
+                </button>
+
+                <!-- Botões de ação (inicialmente ocultos) -->
+                <button id="syncBtn" class="btn btn-outline-primary btn-sm hidden" onclick="syncWithGoogle()">
+                    Sincronizar
+                </button>
+                <button id="signoutBtn" class="btn btn-outline-danger btn-sm hidden" onclick="handleSignoutClick()">
+                    Sair
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calendário -->
+    <div class="mt-4 px-1 position-relative">
+        <div class="card border-0 shadow-sm rounded-3 overflow-hidden">
+            <div class="card-body p-4">
+                <!-- Navegação do Mês -->
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2 id="monthYear" class="h4 mb-0 fw-bold text-primary"></h2>
+                    <div class="btn-group shadow-sm" role="group">
+                        <button id="prevMonth" class="btn btn-outline-primary btn-sm rounded-start-pill">
+                            Anterior
+                        </button>
+                        <button id="todayBtn" class="btn btn-primary btn-sm px-3">Hoje</button>
+                        <button id="nextMonth" class="btn btn-outline-primary btn-sm rounded-end-pill">
+                            Próximo
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Grade do Calendário -->
+                <div class="table-responsive">
+                    <table class="table table-calendar" style="font-size: 0.9rem;">
+                        <thead>
+                            <tr class="text-uppercase text-muted small fw-semibold" style="background-color: #f8f9fa;">
+                                <th class="text-center py-3 text-danger">Dom</th>
+                                <th class="text-center py-3">Seg</th>
+                                <th class="text-center py-3">Ter</th>
+                                <th class="text-center py-3">Qua</th>
+                                <th class="text-center py-3">Qui</th>
+                                <th class="text-center py-3">Sex</th>
+                                <th class="text-center py-3 text-primary">Sáb</th>
+                            </tr>
+                        </thead>
+                        <tbody id="calendarBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Botão Flutuante -->
+<button class="btn btn-primary rounded-circle shadow-lg position-fixed bottom-0 end-0 m-4 p-0 d-flex align-items-center justify-content-center" 
+        style="width: 56px; height: 56px; font-size: 1.5rem;" 
+        data-bs-toggle="modal" data-bs-target="#eventModal" id="fabButton">
+    +
+</button>
+
+<!-- Modal de Evento -->
+<div class="modal fade" id="eventModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-3">
+            <div class="modal-header border-0 bg-gradient text-white" style="background: linear-gradient(135deg, #118cc4, #0d6efd);">
+                <h5 class="modal-title fw-bold" id="modalTitle">Novo Evento</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="eventForm">
+                    <input type="hidden" id="eventDate">
+                    <input type="hidden" id="eventIndex">
+                    <input type="hidden" id="eventGoogleId">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label small text-muted fw-semibold">Título do Evento</label>
+                            <input type="text" class="form-control form-control-lg" id="eventTitle" placeholder="Ex: Reunião com cliente" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted fw-semibold">Cor</label>
+                            <select class="form-select form-select-lg" id="eventColor">
+                                <option value="bg-primary|1">Azul</option>
+                                <option value="bg-success|2">Verde</option>
+                                <option value="bg-warning text-dark|3">Amarelo</option>
+                                <option value="bg-danger|4">Vermelho</option>
+                                <option value="bg-info text-dark|5">Ciano</option>
+                                <option value="bg-dark|6">Escuro</option>
+                                <option value="bg-secondary text-white|7">Cinza</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label small text-muted fw-semibold">Descrição (opcional)</label>
+                        <textarea class="form-control" id="eventDesc" rows="3" placeholder="Detalhes do evento..."></textarea>
+                    </div>
+                    <div id="googleEventInfo" class="alert alert-info small mt-2 d-none" role="alert">
+                        Sincronizado com Google Agenda
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-0 justify-content-between">
+                <button type="button" class="btn btn-outline-danger rounded-pill px-4" id="deleteEvent" style="display: none;">
+                    Excluir
+                </button>
+                <div>
+                    <button type="button" class="btn btn-light rounded-pill px-4 me-2" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary rounded-pill px-4" id="saveEvent">
+                        Salvar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estilos -->
+<style>
+    :root { --event-height: 22px; }
+    .table-calendar { table-layout: fixed; user-select: none; }
+    .table-calendar th, .table-calendar td { height: 110px; vertical-align: top; padding: 8px !important; position: relative; transition: all 0.2s ease; }
+    .day-number { font-weight: 600; font-size: 0.9rem; color: #2c3e50; margin-bottom: 4px; }
+    .day-outside { color: #adb5bd !important; opacity: 0.6; }
+    .event-badge { display: flex; align-items: center; font-size: 0.72rem; padding: 2px 6px; margin: 2px 0; border-radius: 6px; color: white; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: grab; height: var(--event-height); font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: all 0.2s; }
+    .event-badge::before { content: ''; width: 6px; height: 6px; background: white; border-radius: 50%; margin-right: 6px; flex-shrink: 0; }
+    .event-badge.google-event::after { content: ' [Google]'; margin-left: 2px; font-size: 0.8em; }
+    .event-badge:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
+    .event-badge.dragging { opacity: 0.5; cursor: grabbing; }
+    .today { background: linear-gradient(135deg, #e3f2fd, #bbdefb) !important; border: 2px solid #1976d2 !important; border-radius: 12px; }
+    .calendar-cell { cursor: pointer; transition: background-color 0.2s; border: 1px solid #e9ecef; border-radius: 12px; margin: 2px; }
+    .calendar-cell:hover { background-color: #f8f9fa; transform: scale(1.02); z-index: 1; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .events-container { max-height: calc(4 * var(--event-height) + 8px); overflow: hidden; position: relative; }
+    .more-events { font-size: 0.65rem; color: #6c757d; text-align: center; margin-top: 2px; font-weight: 600; cursor: pointer; }
+    .more-events:hover { color: #0d6efd; }
+    .weekend { background-color: #f8f9fa; }
+    .drop-target { background-color: #d4edda !important; border: 2px dashed #28a745 !important; }
+    .hidden, .d-none { display: none !important; }
+</style>
+
+<!-- Scripts Google -->
+<script src="https://apis.google.com/js/api.js" onload="gapiLoaded()" async defer></script>
+<script src="https://accounts.google.com/gsi/client" onload="gisLoaded()" async defer></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Elementos
+    const monthYear = document.getElementById('monthYear');
+    const calendarBody = document.getElementById('calendarBody');
+    const prevMonth = document.getElementById('prevMonth');
+    const nextMonth = document.getElementById('nextMonth');
+    const todayBtn = document.getElementById('todayBtn');
+    const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
+    const saveEventBtn = document.getElementById('saveEvent');
+    const deleteEventBtn = document.getElementById('deleteEvent');
+    const modalTitle = document.getElementById('modalTitle');
+    const googleEventInfo = document.getElementById('googleEventInfo');
+
+    let currentDate = new Date();
+    let selectedDate = null;
+    let selectedEventIndex = null;
+    let draggedEvent = null;
+
+    // CONFIGURAÇÃO DO CALENDÁRIO (MUDE AQUI PARA A CONTA CORRETA)
+    const CALENDAR_ID = 'adm.ibi@transcamila.com.br';  // CONTA COM OS EVENTOS
+    const CLIENT_ID = '233458114495-5jtecbmlkqs6jtc7qscaut8tlm63fb92.apps.googleusercontent.com';
+    const API_KEY = 'AIzaSyBeukbHA7dWPB8l2GxjdG21IdSzjvzWrMA';
+    const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
+    const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
+
+    let tokenClient;
+    let gapiInited = false;
+    let gisInited = false;
+    let isAuthenticated = false;
+
+    const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+    // === GOOGLE API LOADED ===
+    window.gapiLoaded = function() {
+        gapi.load('client', async () => {
+            await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] });
+            gapiInited = true;
+            maybeEnableButtons();
+            console.log('Google API Client carregado');
+        });
+    };
+
+    window.gisLoaded = function() {
+        tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: CLIENT_ID,
+            scope: SCOPES,
+            callback: handleCredentialResponse,
+        });
+        gisInited = true;
+        maybeEnableButtons();
+        console.log('Google Identity Services carregado');
+    };
+
+    function maybeEnableButtons() {
+        if (gapiInited && gisInited) {
+            const btn = document.getElementById('googleSignInBtn');
+            if (btn) {
+                btn.style.display = 'inline-block';
+                console.log('Botão de login exibido');
+            }
+        }
+    }
+
+    // === AUTENTICAÇÃO ===
+    function handleCredentialResponse(response) {
+        isAuthenticated = true;
+        gapi.client.setToken({ access_token: response.credential });
+        document.getElementById('googleSignInBtn').style.display = 'none';
+        document.getElementById('syncBtn').classList.remove('hidden');
+        document.getElementById('signoutBtn').classList.remove('hidden');
+        console.log('Login com Google realizado');
+        syncWithGoogle(); // Sincroniza automaticamente
+    }
+
+    document.getElementById('googleSignInBtn')?.addEventListener('click', () => {
+        tokenClient.requestAccessToken({ prompt: 'consent' });
+    });
+
+    window.handleSignoutClick = function() {
+        google.accounts.id.disableAutoSelect();
+        gapi.client.setToken(null);
+        isAuthenticated = false;
+        document.getElementById('googleSignInBtn').style.display = 'inline-block';
+        document.getElementById('syncBtn').classList.add('hidden');
+        document.getElementById('signoutBtn').classList.add('hidden');
+        localStorage.removeItem('plannerEvents');
+        renderCalendar();
+        console.log('Logout realizado');
+    };
+
+    // === SINCRONIZAÇÃO ===
+    window.syncWithGoogle = async function() {
+        if (!isAuthenticated) return alert('Faça login com Google primeiro!');
+
+        try {
+            await loadGoogleEvents();
+            renderCalendar();
+            alert('Sincronizado com Google Agenda!');
+            console.log('Sincronização concluída');
+        } catch (err) {
+            console.error('Erro na sincronização:', err);
+            alert('Erro ao sincronizar. Veja o console (F12).');
+        }
+    };
+
+    async function loadGoogleEvents() {
+        const events = JSON.parse(localStorage.getItem('plannerEvents') || '{}');
+        const now = new Date();
+        const timeMin = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
+        const timeMax = new Date(now.getFullYear(), now.getMonth() + 3, 0).toISOString();
+
+        try {
+            const response = await gapi.client.calendar.events.list({
+                calendarId: CALENDAR_ID,  // CONTA CORRETA
+                timeMin,
+                timeMax,
+                maxResults: 200,
+                singleEvents: true,
+                orderBy: 'startTime'
+            });
+
+            const items = response.result.items || [];
+            console.log(`Encontrados ${items.length} eventos no calendário ${CALENDAR_ID}`);
+
+            items.forEach(item => {
+                let dateStr;
+                if (item.start.date) {
+                    dateStr = item.start.date;
+                } else if (item.start.dateTime) {
+                    dateStr = item.start.dateTime.split('T')[0];
+                } else {
+                    return;
+                }
+
+                if (!events[dateStr]) events[dateStr] = [];
+
+                if (events[dateStr].some(e => e.googleId === item.id)) return;
+
+                const colorMap = {
+                    '1': 'bg-primary|1', '2': 'bg-success|2', '3': 'bg-warning text-dark|3',
+                    '4': 'bg-danger|4', '5': 'bg-info text-dark|5', '6': 'bg-dark|6', '7': 'bg-secondary text-white|7'
+                };
+                const color = colorMap[item.colorId] || 'bg-info text-dark|5';
+
+                events[dateStr].push({
+                    title: item.summary || '(Sem título)',
+                    desc: item.description || '',
+                    color: color.split('|')[0],
+                    googleId: item.id,
+                    googleColorId: item.colorId,
+                    isAllDay: !!item.start.date
+                });
+            });
+
+            localStorage.setItem('plannerEvents', JSON.stringify(events));
+            console.log('Eventos sincronizados com sucesso:', events);
+        } catch (err) {
+            console.error('Erro ao carregar eventos do Google:', err);
+            throw err;
+        }
+    }
+
+    async function saveToGoogle(eventData, date, isUpdate = false, googleId = null) {
+        if (!isAuthenticated) return;
+
+        const [_, colorId] = eventData.color.split('|');
+        const googleEvent = {
+            summary: eventData.title,
+            description: eventData.desc,
+            start: { date },
+            end: { date },
+            colorId: parseInt(colorId)
+        };
+
+        try {
+            let result;
+            if (isUpdate && googleId) {
+                result = await gapi.client.calendar.events.update({
+                    calendarId: CALENDAR_ID,  // CONTA CORRETA
+                    eventId: googleId,
+                    resource: googleEvent
+                });
+                console.log('Evento atualizado no Google:', result.result.id);
+            } else {
+                result = await gapi.client.calendar.events.insert({
+                    calendarId: CALENDAR_ID,  // CONTA CORRETA
+                    resource: googleEvent
+                });
+                eventData.googleId = result.result.id;
+                console.log('Evento criado no Google:', result.result.id);
+            }
+        } catch (err) {
+            console.error('Erro ao salvar no Google:', err);
+            alert('Erro ao salvar no Google. Veja o console.');
+        }
+    }
+
+    async function deleteFromGoogle(googleId) {
+        if (!isAuthenticated || !googleId) return;
+        try {
+            await gapi.client.calendar.events.delete({
+                calendarId: CALENDAR_ID,  // CONTA CORRETA
+                eventId: googleId
+            });
+            console.log('Evento excluído do Google:', googleId);
+        } catch (err) {
+            console.error('Erro ao excluir do Google:', err);
+        }
+    }
+
+    // === RENDERIZAÇÃO DO CALENDÁRIO ===
+    function renderCalendar() {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const today = new Date(); today.setHours(0,0,0,0);
+        monthYear.textContent = `${meses[month]} ${year}`;
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+        let html = '', day = 1, nextMonthDay = 1;
+        for (let week = 0; week < 6; week++) {
+            html += '<tr>';
+            for (let weekday = 0; weekday < 7; weekday++) {
+                const cellIndex = week * 7 + weekday;
+                if (cellIndex < firstDay) {
+                    const prevDay = daysInPrevMonth - firstDay + cellIndex + 1;
+                    html += `<td class="calendar-cell text-muted day-outside"><div class="day-number day-outside">${prevDay}</div></td>`;
+                } else if (day <= daysInMonth) {
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const isToday = today.toISOString().split('T')[0] === dateStr;
+                    const isWeekend = weekday === 0 || weekday === 6;
+                    html += `<td class="calendar-cell ${isToday ? 'today' : ''} ${isWeekend ? 'weekend' : ''}" data-date="${dateStr}">
+                                <div class="day-number">${day}</div>
+                                <div class="events-container" data-date="${dateStr}"></div>
+                             </td>`;
+                    day++;
+                } else {
+                    html += `<td class="calendar-cell text-muted day-outside"><div class="day-number day-outside">${nextMonthDay++}</div></td>`;
+                }
+            }
+            html += '</tr>';
+            if (day > daysInMonth) break;
+        }
+        calendarBody.innerHTML = html;
+        loadEvents();
+        attachCellEvents();
+    }
+
+    function attachCellEvents() {
+        document.querySelectorAll('.calendar-cell[data-date]').forEach(cell => {
+            cell.onclick = e => {
+                if (e.target.closest('.event-badge')) return;
+                selectedDate = cell.dataset.date;
+                selectedEventIndex = null;
+                document.getElementById('eventDate').value = selectedDate;
+                document.getElementById('eventIndex').value = '';
+                document.getElementById('eventGoogleId').value = '';
+                modalTitle.textContent = 'Novo Evento';
+                deleteEventBtn.style.display = 'none';
+                googleEventInfo.classList.add('d-none');
+                document.getElementById('eventForm').reset();
+                document.getElementById('eventTitle').focus();
+                eventModal.show();
+            };
+
+            cell.ondragover = e => e.preventDefault();
+            cell.ondragenter = e => { e.preventDefault(); if (draggedEvent) cell.classList.add('drop-target'); };
+            cell.ondragleave = () => cell.classList.remove('drop-target');
+            cell.ondrop = () => {
+                if (!draggedEvent) return;
+                const oldDate = draggedEvent.dataset.date;
+                const newDate = cell.dataset.date;
+                if (oldDate !== newDate) moveEvent(oldDate, newDate, draggedEvent.dataset.index);
+                cell.classList.remove('drop-target');
+            };
+        });
+    }
+
+    function loadEvents() {
+        const events = JSON.parse(localStorage.getItem('plannerEvents') || '{}');
+        document.querySelectorAll('.events-container').forEach(container => {
+            container.innerHTML = '';
+            const date = container.dataset.date;
+            if (events[date]) {
+                events[date].slice(0, 4).forEach((ev, i) => container.appendChild(createEventBadge(ev, date, i)));
+                if (events[date].length > 4) {
+                    const more = document.createElement('div');
+                    more.className = 'more-events';
+                    more.textContent = `+${events[date].length - 4} mais`;
+                    more.onclick = () => showAllEvents(date);
+                    container.appendChild(more);
+                }
+            }
+        });
+    }
+
+    function createEventBadge(ev, date, index) {
+        const badge = document.createElement('div');
+        badge.className = `event-badge ${ev.color} ${ev.googleId ? 'google-event' : ''}`;
+        badge.textContent = ev.title + (ev.isAllDay ? '' : ' [com hora]');
+        badge.title = (ev.desc || ev.title) + (ev.isAllDay ? '' : '\n(Evento com horário específico)');
+        badge.dataset.date = date;
+        badge.dataset.index = index;
+        badge.draggable = true;
+
+        badge.ondragstart = () => { draggedEvent = badge; badge.classList.add('dragging'); };
+        badge.ondragend = () => { badge.classList.remove('dragging'); draggedEvent = null; };
+        badge.onclick = e => {
+            e.stopPropagation();
+            selectedDate = date;
+            selectedEventIndex = index;
+            document.getElementById('eventDate').value = date;
+            document.getElementById('eventIndex').value = index;
+            document.getElementById('eventGoogleId').value = ev.googleId || '';
+            document.getElementById('eventTitle').value = ev.title;
+            document.getElementById('eventDesc').value = ev.desc || '';
+            document.getElementById('eventColor').value = ev.color + '|' + (ev.googleColorId || '1');
+            modalTitle.textContent = 'Editar Evento';
+            deleteEventBtn.style.display = 'inline-flex';
+            googleEventInfo.classList.toggle('d-none', !ev.googleId);
+            eventModal.show();
+        };
+        return badge;
+    }
+
+    function showAllEvents(date) {
+        const events = JSON.parse(localStorage.getItem('plannerEvents') || '{}')[date] || [];
+        const list = events.map((ev, i) => `• [${ev.color.replace('bg-', '').toUpperCase()}] ${ev.title}${ev.googleId ? ' [Google]' : ''}`).join('\n');
+        alert(`Eventos em ${date}:\n\n${list || 'Nenhum evento.'}`);
+    }
+
+    async function moveEvent(oldDate, newDate, index) {
+        const events = JSON.parse(localStorage.getItem('plannerEvents') || '{}');
+        const event = events[oldDate][index];
+        events[oldDate].splice(index, 1);
+        if (!events[oldDate].length) delete events[oldDate];
+        if (!events[newDate]) events[newDate] = [];
+        events[newDate].push(event);
+        localStorage.setItem('plannerEvents', JSON.stringify(events));
+        if (event.googleId) await saveToGoogle(event, newDate, true, event.googleId);
+        renderCalendar();
+    }
+
+    saveEventBtn.onclick = async () => {
+        const title = document.getElementById('eventTitle').value.trim();
+        if (!title || !selectedDate) return;
+
+        const [colorClass, colorId] = document.getElementById('eventColor').value.split('|');
+        const eventData = {
+            title,
+            desc: document.getElementById('eventDesc').value,
+            color: colorClass + '|' + colorId
+        };
+
+        const events = JSON.parse(localStorage.getItem('plannerEvents') || '{}');
+        if (!events[selectedDate]) events[selectedDate] = [];
+
+        const googleId = document.getElementById('eventGoogleId').value;
+        const isUpdate = selectedEventIndex !== null;
+
+        let savedEvent;
+
+        if (isUpdate) {
+            savedEvent = { ...events[selectedDate][selectedEventIndex], ...eventData };
+            events[selectedDate][selectedEventIndex] = savedEvent;
+            await saveToGoogle(savedEvent, selectedDate, true, googleId);
+        } else {
+            savedEvent = { ...eventData, googleId: null };
+            events[selectedDate].push(savedEvent);
+            await saveToGoogle(savedEvent, selectedDate);
+        }
+
+        localStorage.setItem('plannerEvents', JSON.stringify(events));
+        eventModal.hide();
+        renderCalendar();
+    };
+
+    deleteEventBtn.onclick = async () => {
+        if (selectedEventIndex === null || !confirm('Excluir este evento?')) return;
+        const events = JSON.parse(localStorage.getItem('plannerEvents') || '{}');
+        const ev = events[selectedDate][selectedEventIndex];
+        if (ev.googleId) await deleteFromGoogle(ev.googleId);
+        events[selectedDate].splice(selectedEventIndex, 1);
+        if (!events[selectedDate].length) delete events[selectedDate];
+        localStorage.setItem('plannerEvents', JSON.stringify(events));
+        eventModal.hide();
+        renderCalendar();
+    };
+
+    prevMonth.onclick = () => { currentDate.setMonth(currentDate.getMonth() - 1); renderCalendar(); };
+    nextMonth.onclick = () => { currentDate.setMonth(currentDate.getMonth() + 1); renderCalendar(); };
+    todayBtn.onclick = () => { currentDate = new Date(); renderCalendar(); };
+
+    // Inicializa
+    renderCalendar();
+});
+</script>
+
+{% endblock %}

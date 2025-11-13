@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Parâmetros Iniciais</title>
+
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet"/>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"/>
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+
+  <style>
+    body {
+      background-color: #f8f9fa;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Roboto', sans-serif;
+    }
+
+    .login-container {
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      padding: 35px;
+      width: 100%;
+      max-width: 480px;
+      border: 1px solid #e0e0e0;
+    }
+
+    .login-logo { text-align: center; margin-bottom: 20px; }
+    .login-logo img { max-width: 220px; height: auto; }
+
+    .login-header { text-align: center; margin-bottom: 25px; }
+    .login-header h2 { color: #2c3e50; font-weight: 600; font-size: 22px; margin-bottom: 8px; }
+    .login-header p { color: #7f8c8d; font-size: 14px; }
+
+    .form-control, .form-select {
+      border-radius: 6px; padding: 12px 15px; border: 1px solid #e0e0e0;
+      font-size: 14px; height: 48px;
+    }
+    .form-control:focus, .form-select:focus {
+      border-color: #3498db; box-shadow: 0 0 0 2px rgba(52,152,219,.1);
+    }
+    .form-control:disabled, .form-select:disabled {
+      background-color: #e9ecef; color: #6c757d; opacity: 1;
+    }
+
+    .btn-continue {
+      background-color: #118cc4; border: none; color: white;
+      width: 100%; padding: 12px; border-radius: 6px;
+      font-weight: 500; font-size: 15px; transition: background-color .2s;
+      margin-top: 20px;
+    }
+    .btn-continue:hover { background-color: #1d9fcd; }
+
+    .input-group-text {
+      background-color: #f8f9fa; border: 1px solid #e0e0e0; border-right: none;
+      border-radius: 6px 0 0 6px !important; padding: 0 15px;
+      display: flex; align-items: center;
+    }
+    .input-group-text i { color: #2c3e50; font-size: 16px; width: 20px; text-align: center; }
+    .input-with-icon { border-left: none !important; border-radius: 0 6px 6px 0 !important; }
+
+    .row.g-2 { --bs-gutter-x: .5rem; }
+
+    /* Botão discreto de desconectar */
+    .logout-section {
+      text-align: center;
+      margin-top: 18px;
+      padding-top: 15px;
+      border-top: 1px solid #e9ecef;
+    }
+    .logout-link {
+      font-size: 13px;
+      color: #6c757d;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: color .2s ease;
+    }
+    .logout-link:hover { color: #dc3545; }
+    .logout-link i { font-size: 14px; }
+
+    /* Loader */
+    #loading-overlay {
+      position:fixed; top:0; left:0; width:100%; height:100%;
+      background:rgba(255,255,255,.9); display:none; justify-content:center;
+      align-items:center; z-index:9999; flex-direction:column;
+    }
+    .loader-container { position:relative; height:150px; display:flex;
+      justify-content:center; align-items:center; }
+    .loader-ring { width:80px; height:80px; border:0 solid #000; border-radius:50%; position:absolute; }
+    .loader-ring:nth-child(1){ border-bottom-width:6px; border-color:#118cc4;
+      animation: rotate 2s linear infinite; }
+    .loader-text { color:#118cc4; font-size:14px; margin-top:20px; font-weight:500; }
+    @keyframes rotate{
+      0%{transform:rotatex(35deg) rotatey(45deg) rotatez(0deg);}
+      100%{transform:rotatex(34deg) rotatey(45deg) rotatez(360deg);}
+    }
+  </style>
+</head>
+<link rel="shortcut icon" href="/static/img/TconexIco.png" type="image/x-icon">
+<body>
+
+  <div class="login-container">
+    <div class="login-logo">
+      <img src="/static/img/TC conex.png" alt="Logo da Empresa">
+    </div>
+
+    <div class="login-header">
+      <h2>Parâmetros Iniciais</h2>
+      <p>Configure os parâmetros para continuar</p>
+    </div>
+
+    <form id="parametros-form" method="post" action="{% url 'acessar_ambiente' %}">
+      {% csrf_token %}
+      
+      <!-- Nome de Usuário (desativado) -->
+      <div class="mb-3">
+        <label for="username" class="form-label">Nome de Usuário</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="fas fa-user"></i></span>
+          <input type="text" class="form-control input-with-icon" id="username"
+                 value="{{ user.username }}" disabled>
+        </div>
+      </div>
+
+      <!-- Seleção de Ambiente -->
+      <div class="mb-3">
+        <label class="form-label">Ambiente</label>
+        <div class="row g-2">
+          <!-- AMBIENTE (com ícone de banco de dados) -->
+          <div class="col-8">
+            <div class="input-group">
+              <span class="input-group-text"><i class="fas fa-database"></i></span>
+              <select class="form-select input-with-icon" id="ambiente" name="ambiente" required>
+                <option value="" disabled selected>Selecione o ambiente</option>
+                {% for usuario_filial in usuario_filiais %}
+                  {% for ambiente in usuario_filial.ambientes.all %}
+                    <option value="{{ ambiente.codigo }}" data-codigo="00{{ ambiente.codigo }}">
+                      {{ ambiente.nome }}
+                    </option>
+                  {% endfor %}
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <!-- CÓDIGO (desativado, mostra o código do ambiente selecionado) -->
+          <div class="col-4">
+            <input type="text" class="form-control" id="ambiente-codigo" value="" disabled placeholder="Código">
+          </div>
+        </div>
+      </div>
+
+      <!-- Seleção de Filial -->
+      <div class="mb-3">
+        <label for="filial" class="form-label">Filial</label>
+        <select class="form-select" id="filial" name="filial" required>
+          <option value="" disabled selected>Selecione a filial</option>
+          {% for usuario_filial in usuario_filiais %}
+            <option value="{{ usuario_filial.filial.codigo }}">
+              {{ usuario_filial.filial.codigo }} - {{ usuario_filial.filial.nome }} {{ usuario_filial.filial.cidade }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <button type="submit" class="btn btn-continue" id="submit-button">Continuar</button>
+    </form>
+
+    <!-- BOTÃO DESCONECTAR -->
+    <div class="logout-section">
+      <a href="{% url 'logout' %}" class="logout-link">
+        <i class="fas fa-sign-out-alt"></i> Encerrar sessão
+      </a>
+    </div>
+  </div>
+
+  <!-- Loader -->
+  <div id="loading-overlay">
+    <div class="loader-container"><div class="loader-ring"></div></div>
+    <p class="loader-text">Processando...</p>
+  </div>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // Atualiza o código do ambiente quando selecionado
+    document.getElementById('ambiente').addEventListener('change', function() {
+      const selectedOption = this.options[this.selectedIndex];
+      const codigo = selectedOption.getAttribute('data-codigo');
+      document.getElementById('ambiente-codigo').value = codigo;
+    });
+
+    // Validação do formulário
+    document.getElementById('parametros-form').addEventListener('submit', function(e) {
+      const ambiente = document.getElementById('ambiente').value;
+      const filial = document.getElementById('filial').value;
+      
+      if (!ambiente || !filial) {
+        e.preventDefault();
+        alert('Por favor, selecione ambiente e filial.');
+        return;
+      }
+      
+      // Mostra loading
+      document.getElementById('loading-overlay').style.display = 'flex';
+      document.getElementById('submit-button').disabled = true;
+    });
+
+    // Garante que o loader não fique preso
+    window.addEventListener('load', function() {
+      document.getElementById('loading-overlay').style.display = 'none';
+      const submitButton = document.getElementById('submit-button');
+      if (submitButton) {
+        submitButton.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
